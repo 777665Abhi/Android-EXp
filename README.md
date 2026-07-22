@@ -141,65 +141,223 @@ val length: Int = name!!.length // 💥 Throws NullPointerException at runtime!
 | **`!!`** | Non-Null Assertion | Forces non-null conversion (risks NPE) | `x!!.length` | 💥 `NullPointerException` |
 
 > **Best Practice:** Favor `?.` and `?:` everywhere. Reserve `!!` only for scenarios where you are 100% sure a value isn't null, or in tests where you *want* it to fail fast if null.
-
+-----------------------------
 3. `lateinit` vs `lazy` initialization.
-4. Kotlin `data class` and generated methods (`copy`, `equals`, `hashCode`, `toString`, `componentN`).
-5. `open`, `final`, `abstract`, and `sealed` class modifiers.
-6. `companion object` vs `object` declaration.
-7. Higher-order functions and lambdas.
-8. `inline`, `noinline`, and `crossinline` functions.
-9. `reified` type parameters in inline functions.
-10. Extension functions and property implementation under the hood.
-11. `map` vs `flatMap` vs `compactMap` equivalents.
-12. Collection mutability (`List` vs `MutableList`).
-13. Scope functions (`let`, `run`, `with`, `apply`, `also`) selection criteria.
-14. Elvis operator short-circuiting mechanics.
-15. `infix` notation requirements and usage.
-16. Destructuring declarations (`component1()`, `component2()`).
-17. `const val` vs `val`.
-18. Delegated properties (`by`) and custom delegates (`ReadOnlyProperty`, `ReadWriteProperty`).
-19. Backing fields (`field`) vs backing properties.
-20. `sealed class` vs `sealed interface`.
-21. Operator overloading syntax and common use cases.
-22. Unchecked vs checked exceptions in Kotlin vs Java.
-23. `@JvmStatic`, `@JvmOverloads`, `@JvmField`, and `@JvmName` annotations.
-24. Primary vs secondary constructors and init blocks.
-25. `enum class` vs `sealed class`.
-26. Value classes (`@JvmInline value class`).
-27. `typealias` keyword usage and limitations.
-28. Functional interfaces (`fun interface` / SAM conversion).
-29. Generics variance: covariance (`out`), contravariance (`in`), invariance.
-30. Star projection (`*`) in generics.
-31. Type erasure in Kotlin/Java generics.
-32. `Nothing` type vs `Unit` vs `Any`.
-33. Structural equality (`==`) vs Referential equality (`===`).
-34. Range expressions and progression loops (`step`, `downTo`, `until`).
-35. `Sequence` vs `Iterable` processing (lazy vs eager evaluation).
-36. Smart casts and `is` / `!is` operators.
-37. Custom getters and setters implementation rules.
-38. Kotlin reflection (`KClass`, `KProperty`, `KFunction`).
-39. Non-local returns in lambdas and `inline` interaction.
-40. Top-level functions and properties compiled representation.
-41. Standard library functions: `takeIf`, `takeUnless`.
-42. Array types in Kotlin (`IntArray`, `Array<Int>`) performance differences.
-43. `@Volatile` and `@Transient` annotations.
-44. String templates and raw multiline strings.
-45. `tailrec` modifier and tail recursion optimization.
-46. Contracts API (`contract { ... }`).
-47. How Kotlin handles default arguments in Java interop.
-48. Package-private visibility equivalent in Kotlin (`internal`).
-49. Exception handling with `runCatching` and `Result<T>`.
-50. Multiplatform Kotlin (KMP) basics: `expect` / `actual` declaration.
-51. Immutable collections vs read-only collections.
-52. `associate`, `associateBy`, and `groupBy` operators.
-53. `fold` vs `reduce` collection methods.
-54. Primitive type wrapping and boxing in Kotlin.
-55. Destructuring custom classes using `componentN()` functions.
-56. Overriding properties in subclasses.
-57. Interface default method implementations in Kotlin bytecode.
-58. Operator function conventions for collections (`get`, `set`, `contains`).
-59. `checkNotNull` and `require` precondition checks.
-60. Explicit API mode in Kotlin libraries.
+Both `lateinit` and `lazy` are used in Kotlin to delay initializing a property until it is actually needed. This saves memory and speeds up initial execution, but they are designed for completely different use cases.
+
+---
+
+### Core Differences
+
+| Feature | `lateinit` | `lazy` |
+| --- | --- | --- |
+| **Mutability** | Must be used with **`var`** | Must be used with **`val`** |
+| **Type Support** | Non-null, non-primitive types only | Any type (primitives, nullable, custom types) |
+| **Initialization** | Manual (you assign it later in code) | Automatic (evaluated on first access via a lambda) |
+| **Thread Safety** | Not thread-safe by default | Thread-safe by default |
+| **Primary Use Case** | Dependency Injection, Android Lifecycle (`onCreate`) | Heavy computational properties, setup on first access |
+
+---
+
+### 1. `lateinit` (Late Initialization)
+
+`lateinit` promises the compiler: *"I won't assign this variable right now, but I guarantee I will initialize it before accessing it."*
+
+```kotlin
+class UserActivity {
+    // Must be 'var' and a non-primitive, non-nullable type
+    private lateinit var userApi: UserApiService 
+
+    fun onCreate() {
+        // Initialized later manually
+        userApi = UserApiService() 
+    }
+
+    fun fetchData() {
+        // You can check if it has been initialized to avoid errors
+        if (::userApi.isInitialized) {
+            userApi.getUsers()
+        }
+    }
+}
+
+```
+
+> 💥 **Warning:** If you access a `lateinit var` before assigning it, Kotlin throws an `UninitializedPropertyAccessException`.
+
+---
+
+### 2. `lazy` Initialization
+
+`by lazy` delegates property initialization to a lambda block. The code inside the block runs **only once**, the very first time the property is accessed. Subsequent calls return the cached result.
+
+```kotlin
+class DataLoader {
+    // Must be 'val'
+    val databaseConnection: Connection by lazy {
+        println("Connecting to DB...") // Runs ONLY on first access
+        Connection.open()
+    }
+}
+
+fun main() {
+    val loader = DataLoader()
+    
+    // DB is NOT connected yet here
+    
+    println(loader.databaseConnection) // Prints "Connecting to DB..." and returns connection
+    println(loader.databaseConnection) // Simply returns cached connection (no print)
+}
+
+```
+
+---
+
+### When to use which?
+
+* Use **`lateinit var`** when you cannot initialize a property in the constructor because its lifecycle is driven by a framework (e.g., Dependency Injection with Dagger/Hilt, or Android Activity lifecycle method `onCreate()`).
+* Use **`val by lazy`** for properties that are expensive to compute or fetch, but whose initialization logic is known upfront and shouldn't run until the property is first read.
+-----------------
+5. Kotlin `data class` and generated methods (`copy`, `equals`, `hashCode`, `toString`, `componentN`).
+
+  In Kotlin, prefixing a class with the `data` keyword tells the compiler that this class exists primarily to **hold data**.
+
+When you do this, Kotlin automatically generates a set of boilerplate methods under the hood based on the properties defined in the **primary constructor**.
+
+```kotlin
+data class User(val name: String, val age: Int)
+
+```
+
+---
+
+### The Generated Methods Breakdown
+
+#### 1. `equals()` and `hashCode()`
+
+In standard Java/Kotlin classes, `equals()` checks **structural identity** (whether two references point to the exact same memory location).
+
+For a `data class`, the compiler overrides `equals()` to check **value equality** across all properties in the primary constructor. `hashCode()` is updated accordingly to keep hashed collections like `HashSet` or `HashMap` working correctly.
+
+```kotlin
+val user1 = User("Alex", 25)
+val user2 = User("Alex", 25)
+
+println(user1 == user2)        // true (Structural equality: values match)
+println(user1 === user2)       // false (Referential equality: different memory instances)
+
+```
+
+---
+
+#### 2. `toString()`
+
+Instead of printing an ugly memory reference like `User@45ee92a1`, `data class` automatically synthesizes a clean, readable string representation showing all property names and values.
+
+```kotlin
+val user = User("Alex", 25)
+println(user) // Prints: User(name=Alex, age=25)
+
+```
+
+---
+
+#### 3. `copy()`
+
+The `copy()` method lets you duplicate an instance while selectively altering only specific properties. This makes maintaining **immutability** (`val`) effortless.
+
+```kotlin
+val originalUser = User("Alex", 25)
+
+// Create a new instance with the same name, but updated age
+val birthdayUser = originalUser.copy(age = 26)
+
+println(birthdayUser) // User(name=Alex, age=26)
+
+```
+
+---
+
+#### 4. `componentN()` functions (Destructuring Declarations)
+
+The compiler auto-generates `component1()`, `component2()`, ..., `componentN()` functions corresponding to the order of properties in the primary constructor. This powers **destructuring declarations**.
+
+```kotlin
+val user = User("Alex", 25)
+
+// Calls user.component1() and user.component2() under the hood
+val (userName, userAge) = user 
+
+println(userName) // "Alex"
+println(userAge)  // 25
+
+```
+
+---
+
+### Critical Rules to Remember
+
+* **Primary Constructor Only:** The auto-generated methods *only* use properties declared in the primary constructor. Any properties declared inside the class body are ignored by `equals()`, `hashCode()`, `toString()`, and `copy()`.
+* **Constructor Requirements:** A `data class` primary constructor must have at least one parameter, and all parameters must be explicitly marked as `val` or `var`.
+* **Class Inheritance:** `data class` cannot be marked as `open`, `abstract`, or `sealed`. They are `final` by default and cannot be extended.
+
+   -------------------------------------
+7. `open`, `final`, `abstract`, and `sealed` class modifiers.
+8. `companion object` vs `object` declaration.
+9. Higher-order functions and lambdas.
+10. `inline`, `noinline`, and `crossinline` functions.
+11. `reified` type parameters in inline functions.
+12. Extension functions and property implementation under the hood.
+13. `map` vs `flatMap` vs `compactMap` equivalents.
+14. Collection mutability (`List` vs `MutableList`).
+15. Scope functions (`let`, `run`, `with`, `apply`, `also`) selection criteria.
+16. Elvis operator short-circuiting mechanics.
+17. `infix` notation requirements and usage.
+18. Destructuring declarations (`component1()`, `component2()`).
+19. `const val` vs `val`.
+20. Delegated properties (`by`) and custom delegates (`ReadOnlyProperty`, `ReadWriteProperty`).
+21. Backing fields (`field`) vs backing properties.
+22. `sealed class` vs `sealed interface`.
+23. Operator overloading syntax and common use cases.
+24. Unchecked vs checked exceptions in Kotlin vs Java.
+25. `@JvmStatic`, `@JvmOverloads`, `@JvmField`, and `@JvmName` annotations.
+26. Primary vs secondary constructors and init blocks.
+27. `enum class` vs `sealed class`.
+28. Value classes (`@JvmInline value class`).
+29. `typealias` keyword usage and limitations.
+30. Functional interfaces (`fun interface` / SAM conversion).
+31. Generics variance: covariance (`out`), contravariance (`in`), invariance.
+32. Star projection (`*`) in generics.
+33. Type erasure in Kotlin/Java generics.
+34. `Nothing` type vs `Unit` vs `Any`.
+35. Structural equality (`==`) vs Referential equality (`===`).
+36. Range expressions and progression loops (`step`, `downTo`, `until`).
+37. `Sequence` vs `Iterable` processing (lazy vs eager evaluation).
+38. Smart casts and `is` / `!is` operators.
+39. Custom getters and setters implementation rules.
+40. Kotlin reflection (`KClass`, `KProperty`, `KFunction`).
+41. Non-local returns in lambdas and `inline` interaction.
+42. Top-level functions and properties compiled representation.
+43. Standard library functions: `takeIf`, `takeUnless`.
+44. Array types in Kotlin (`IntArray`, `Array<Int>`) performance differences.
+45. `@Volatile` and `@Transient` annotations.
+46. String templates and raw multiline strings.
+47. `tailrec` modifier and tail recursion optimization.
+48. Contracts API (`contract { ... }`).
+49. How Kotlin handles default arguments in Java interop.
+50. Package-private visibility equivalent in Kotlin (`internal`).
+51. Exception handling with `runCatching` and `Result<T>`.
+52. Multiplatform Kotlin (KMP) basics: `expect` / `actual` declaration.
+53. Immutable collections vs read-only collections.
+54. `associate`, `associateBy`, and `groupBy` operators.
+55. `fold` vs `reduce` collection methods.
+56. Primitive type wrapping and boxing in Kotlin.
+57. Destructuring custom classes using `componentN()` functions.
+58. Overriding properties in subclasses.
+59. Interface default method implementations in Kotlin bytecode.
+60. Operator function conventions for collections (`get`, `set`, `contains`).
+61. `checkNotNull` and `require` precondition checks.
+62. Explicit API mode in Kotlin libraries.
 
 ---
 
