@@ -303,61 +303,211 @@ println(userAge)  // 25
 
    -------------------------------------
 7. `open`, `final`, `abstract`, and `sealed` class modifiers.
-8. `companion object` vs `object` declaration.
-9. Higher-order functions and lambdas.
-10. `inline`, `noinline`, and `crossinline` functions.
-11. `reified` type parameters in inline functions.
-12. Extension functions and property implementation under the hood.
-13. `map` vs `flatMap` vs `compactMap` equivalents.
-14. Collection mutability (`List` vs `MutableList`).
-15. Scope functions (`let`, `run`, `with`, `apply`, `also`) selection criteria.
-16. Elvis operator short-circuiting mechanics.
-17. `infix` notation requirements and usage.
-18. Destructuring declarations (`component1()`, `component2()`).
-19. `const val` vs `val`.
-20. Delegated properties (`by`) and custom delegates (`ReadOnlyProperty`, `ReadWriteProperty`).
-21. Backing fields (`field`) vs backing properties.
-22. `sealed class` vs `sealed interface`.
-23. Operator overloading syntax and common use cases.
-24. Unchecked vs checked exceptions in Kotlin vs Java.
-25. `@JvmStatic`, `@JvmOverloads`, `@JvmField`, and `@JvmName` annotations.
-26. Primary vs secondary constructors and init blocks.
-27. `enum class` vs `sealed class`.
-28. Value classes (`@JvmInline value class`).
-29. `typealias` keyword usage and limitations.
-30. Functional interfaces (`fun interface` / SAM conversion).
-31. Generics variance: covariance (`out`), contravariance (`in`), invariance.
-32. Star projection (`*`) in generics.
-33. Type erasure in Kotlin/Java generics.
-34. `Nothing` type vs `Unit` vs `Any`.
-35. Structural equality (`==`) vs Referential equality (`===`).
-36. Range expressions and progression loops (`step`, `downTo`, `until`).
-37. `Sequence` vs `Iterable` processing (lazy vs eager evaluation).
-38. Smart casts and `is` / `!is` operators.
-39. Custom getters and setters implementation rules.
-40. Kotlin reflection (`KClass`, `KProperty`, `KFunction`).
-41. Non-local returns in lambdas and `inline` interaction.
-42. Top-level functions and properties compiled representation.
-43. Standard library functions: `takeIf`, `takeUnless`.
-44. Array types in Kotlin (`IntArray`, `Array<Int>`) performance differences.
-45. `@Volatile` and `@Transient` annotations.
-46. String templates and raw multiline strings.
-47. `tailrec` modifier and tail recursion optimization.
-48. Contracts API (`contract { ... }`).
-49. How Kotlin handles default arguments in Java interop.
-50. Package-private visibility equivalent in Kotlin (`internal`).
-51. Exception handling with `runCatching` and `Result<T>`.
-52. Multiplatform Kotlin (KMP) basics: `expect` / `actual` declaration.
-53. Immutable collections vs read-only collections.
-54. `associate`, `associateBy`, and `groupBy` operators.
-55. `fold` vs `reduce` collection methods.
-56. Primitive type wrapping and boxing in Kotlin.
-57. Destructuring custom classes using `componentN()` functions.
-58. Overriding properties in subclasses.
-59. Interface default method implementations in Kotlin bytecode.
-60. Operator function conventions for collections (`get`, `set`, `contains`).
-61. `checkNotNull` and `require` precondition checks.
-62. Explicit API mode in Kotlin libraries.
+
+- final
+  - Means "no subclasses / no overrides allowed".
+  - In Kotlin everything is final by default (you don't need to write final most of the time).
+  - Use final to explicitly forbid further extension/overriding (commonly applied to members after they were open in a base class).
+
+- open
+  - Marks a class or member as extendable/overridable.
+  - Without open you cannot inherit from a class or override a member.
+  - Use open only when you intend consumers to subclass or override.
+
+- abstract
+  - Declares a class that cannot be instantiated directly.
+  - May contain abstract members (no implementation) that subclasses must implement, and regular members with implementations.
+  - Subclasses must implement all abstract members unless they are also abstract.
+
+- sealed
+  - Restricts subclassing to a known, fixed set of types: all direct subclasses must be declared in the same file as the sealed class.
+  - Creates a closed type hierarchy useful for exhaustive when-expressions and modeling finite ADTs (algebraic data types).
+  - Subclasses can be classes, data classes, or objects.
+
+Examples (Kotlin):
+
+```kotlin
+name=open_final.kt
+```kotlin
+// open and final
+open class Animal {
+    open fun sound(): String = "some noise"
+}
+
+class Dog : Animal() {
+    override fun sound() = "Woof"
+}
+
+// By default classes are final, this is redundant but valid:
+final class Cat : Animal() {
+    override fun sound() = "Meow"
+}
+
+// This would be illegal because Cat is final:
+// class PersianCat : Cat() { ... } // ❌ compiler error
+```
+
+```kotlin
+name=abstract_example.kt
+```kotlin
+// abstract
+abstract class Shape {
+    abstract fun area(): Double   // must be implemented by subclasses
+    fun describe() = "I am a shape" // concrete member is allowed
+}
+
+class Circle(private val r: Double) : Shape() {
+    override fun area() = Math.PI * r * r
+}
+
+val c = Circle(2.0)
+// val s = Shape() // ❌ cannot instantiate abstract class
+```
+
+```kotlin
+name=sealed_example.kt
+```kotlin
+// sealed
+sealed class Result {
+    data class Success(val data: String) : Result()
+    object Failure : Result()
+}
+
+// Exhaustive when — no `else` needed because compiler knows all subclasses
+fun handle(r: Result) = when (r) {
+    is Result.Success -> "Got ${r.data}"
+    is Result.Failure -> "Failure"
+}
+```
+
+When to use each (guidance)
+- Prefer final (the default): make classes final unless you have a concrete reason to allow subclassing.
+- Use open sparingly when designing APIs meant for extension.
+- Use abstract when you want a base class with shared code plus required methods that concrete subclasses must supply.
+- Use sealed for closed hierarchies (e.g., Result/Response states) where exhaustive handling is desirable.
+
+   ------------------------------------
+9. `companion object` vs `object` declaration.
+
+- Use object when you want a standalone singleton (module-level or nested helper). 
+- Use companion object when you want a class-scoped singleton that acts like the class’s “static” area (one companion per class, can be called via ClassName and can access the class’s private members).
+
+Explanation and important differences
+
+- object (object declaration)
+  - Declares a singleton instance. There can be many object declarations (top-level, nested, or local).
+  - Initialized lazily on first access, thread-safe by default.
+  - Good for singletons, utility holders, or named instances (e.g., object Logger).
+  - If nested inside a class, it behaves like a static nested object and does NOT get the special “companion” semantics.
+  - Can implement interfaces and hold state.
+
+- companion object
+  - A special object declaration tied to a containing class. Each class can have at most one companion object.
+  - Acts like the class’s static area: from Kotlin you can call members directly as ClassName.member (compiler lets you omit Companion).
+  - Also an object (lazy init, thread-safe) and can implement interfaces.
+  - Can access private members of the containing class (special privilege that plain nested objects don’t have).
+  - For Java interop: companion members are compiled to a nested class OuterClass.Companion; annotate members with @JvmStatic to expose them as true static methods/fields on OuterClass for Java callers.
+
+Short examples
+
+```kotlin name=companion_example.kt
+class MyClass(private val secret: String) {
+    companion object { // can be unnamed (Companion) or named: companion object Factory { ... }
+        fun createWithDefault(): MyClass = MyClass("default")
+    }
+
+    fun reveal() = secret
+}
+
+// Kotlin usage:
+val m = MyClass.createWithDefault()
+```
+
+```kotlin name=object_example.kt
+object Logger {
+    fun d(msg: String) = println("DEBUG: $msg")
+}
+
+// Kotlin usage:
+Logger.d("hi")
+```
+
+Java interop note (quick)
+- Without @JvmStatic:
+  - Companion members are invoked from Java as OuterClass.Companion.method(...).
+- With @JvmStatic on a function/property inside companion:
+  - Java can call OuterClass.method(...) as a real static.
+
+```kotlin name=interop_example.kt
+class Util {
+    companion object {
+        @JvmStatic fun fromJavaStatic() = "static for Java"
+        fun fromJavaViaCompanion() = "needs Companion access"
+    }
+}
+```
+
+Practical guidance / when to pick which
+- Use object for standalone singletons (e.g., Logger, Cache, ServiceLocator).
+- Use companion object when you need per-class “static-like” members, factory methods, constants, or when you want to expose behavior attached to the class (and optionally support Java-friendly static methods via @JvmStatic).
+- Prefer companion object when members need access to private constructors or private members of the class.
+- Don’t confuse companion object with static fields in Java — companion is an object instance; Java interop differs unless you add @JvmStatic.
+
+  -------------------------------------
+11. Higher-order functions and lambdas.
+12. `inline`, `noinline`, and `crossinline` functions.
+13. `reified` type parameters in inline functions.
+14. Extension functions and property implementation under the hood.
+15. `map` vs `flatMap` vs `compactMap` equivalents.
+16. Collection mutability (`List` vs `MutableList`).
+17. Scope functions (`let`, `run`, `with`, `apply`, `also`) selection criteria.
+18. Elvis operator short-circuiting mechanics.
+19. `infix` notation requirements and usage.
+20. Destructuring declarations (`component1()`, `component2()`).
+21. `const val` vs `val`.
+22. Delegated properties (`by`) and custom delegates (`ReadOnlyProperty`, `ReadWriteProperty`).
+23. Backing fields (`field`) vs backing properties.
+24. `sealed class` vs `sealed interface`.
+25. Operator overloading syntax and common use cases.
+26. Unchecked vs checked exceptions in Kotlin vs Java.
+27. `@JvmStatic`, `@JvmOverloads`, `@JvmField`, and `@JvmName` annotations.
+28. Primary vs secondary constructors and init blocks.
+29. `enum class` vs `sealed class`.
+30. Value classes (`@JvmInline value class`).
+31. `typealias` keyword usage and limitations.
+32. Functional interfaces (`fun interface` / SAM conversion).
+33. Generics variance: covariance (`out`), contravariance (`in`), invariance.
+34. Star projection (`*`) in generics.
+35. Type erasure in Kotlin/Java generics.
+36. `Nothing` type vs `Unit` vs `Any`.
+37. Structural equality (`==`) vs Referential equality (`===`).
+38. Range expressions and progression loops (`step`, `downTo`, `until`).
+39. `Sequence` vs `Iterable` processing (lazy vs eager evaluation).
+40. Smart casts and `is` / `!is` operators.
+41. Custom getters and setters implementation rules.
+42. Kotlin reflection (`KClass`, `KProperty`, `KFunction`).
+43. Non-local returns in lambdas and `inline` interaction.
+44. Top-level functions and properties compiled representation.
+45. Standard library functions: `takeIf`, `takeUnless`.
+46. Array types in Kotlin (`IntArray`, `Array<Int>`) performance differences.
+47. `@Volatile` and `@Transient` annotations.
+48. String templates and raw multiline strings.
+49. `tailrec` modifier and tail recursion optimization.
+50. Contracts API (`contract { ... }`).
+51. How Kotlin handles default arguments in Java interop.
+52. Package-private visibility equivalent in Kotlin (`internal`).
+53. Exception handling with `runCatching` and `Result<T>`.
+54. Multiplatform Kotlin (KMP) basics: `expect` / `actual` declaration.
+55. Immutable collections vs read-only collections.
+56. `associate`, `associateBy`, and `groupBy` operators.
+57. `fold` vs `reduce` collection methods.
+58. Primitive type wrapping and boxing in Kotlin.
+59. Destructuring custom classes using `componentN()` functions.
+60. Overriding properties in subclasses.
+61. Interface default method implementations in Kotlin bytecode.
+62. Operator function conventions for collections (`get`, `set`, `contains`).
+63. `checkNotNull` and `require` precondition checks.
+64. Explicit API mode in Kotlin libraries.
 
 ---
 
