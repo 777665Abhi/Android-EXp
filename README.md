@@ -454,60 +454,253 @@ Practical guidance / when to pick which
 - Don’t confuse companion object with static fields in Java — companion is an object instance; Java interop differs unless you add @JvmStatic.
 
   -------------------------------------
-11. Higher-order functions and lambdas.
-12. `inline`, `noinline`, and `crossinline` functions.
-13. `reified` type parameters in inline functions.
-14. Extension functions and property implementation under the hood.
-15. `map` vs `flatMap` vs `compactMap` equivalents.
-16. Collection mutability (`List` vs `MutableList`).
-17. Scope functions (`let`, `run`, `with`, `apply`, `also`) selection criteria.
-18. Elvis operator short-circuiting mechanics.
-19. `infix` notation requirements and usage.
-20. Destructuring declarations (`component1()`, `component2()`).
-21. `const val` vs `val`.
-22. Delegated properties (`by`) and custom delegates (`ReadOnlyProperty`, `ReadWriteProperty`).
-23. Backing fields (`field`) vs backing properties.
-24. `sealed class` vs `sealed interface`.
-25. Operator overloading syntax and common use cases.
-26. Unchecked vs checked exceptions in Kotlin vs Java.
-27. `@JvmStatic`, `@JvmOverloads`, `@JvmField`, and `@JvmName` annotations.
-28. Primary vs secondary constructors and init blocks.
-29. `enum class` vs `sealed class`.
-30. Value classes (`@JvmInline value class`).
-31. `typealias` keyword usage and limitations.
-32. Functional interfaces (`fun interface` / SAM conversion).
-33. Generics variance: covariance (`out`), contravariance (`in`), invariance.
-34. Star projection (`*`) in generics.
-35. Type erasure in Kotlin/Java generics.
-36. `Nothing` type vs `Unit` vs `Any`.
-37. Structural equality (`==`) vs Referential equality (`===`).
-38. Range expressions and progression loops (`step`, `downTo`, `until`).
-39. `Sequence` vs `Iterable` processing (lazy vs eager evaluation).
-40. Smart casts and `is` / `!is` operators.
-41. Custom getters and setters implementation rules.
-42. Kotlin reflection (`KClass`, `KProperty`, `KFunction`).
-43. Non-local returns in lambdas and `inline` interaction.
-44. Top-level functions and properties compiled representation.
-45. Standard library functions: `takeIf`, `takeUnless`.
-46. Array types in Kotlin (`IntArray`, `Array<Int>`) performance differences.
-47. `@Volatile` and `@Transient` annotations.
-48. String templates and raw multiline strings.
-49. `tailrec` modifier and tail recursion optimization.
-50. Contracts API (`contract { ... }`).
-51. How Kotlin handles default arguments in Java interop.
-52. Package-private visibility equivalent in Kotlin (`internal`).
-53. Exception handling with `runCatching` and `Result<T>`.
-54. Multiplatform Kotlin (KMP) basics: `expect` / `actual` declaration.
-55. Immutable collections vs read-only collections.
-56. `associate`, `associateBy`, and `groupBy` operators.
-57. `fold` vs `reduce` collection methods.
-58. Primitive type wrapping and boxing in Kotlin.
-59. Destructuring custom classes using `componentN()` functions.
-60. Overriding properties in subclasses.
-61. Interface default method implementations in Kotlin bytecode.
-62. Operator function conventions for collections (`get`, `set`, `contains`).
-63. `checkNotNull` and `require` precondition checks.
-64. Explicit API mode in Kotlin libraries.
+10. Higher-order functions and lambdas.
+
+## Higher-Order Functions and Lambdas
+
+### **What is a Lambda?**
+
+A **lambda** is an anonymous function — a compact way to define a function without declaring a full named function. Lambdas are lightweight, inline functions that can be passed around like values.
+
+```kotlin
+// Basic lambda syntax:
+val sum = { a: Int, b: Int -> a + b }
+val result = sum(5, 3) // result = 8
+
+// Lambda with single parameter (it is implicit)
+val doubled = { x: Int -> x * 2 }
+val result = doubled(5) // result = 10
+```
+
+### **What is a Higher-Order Function?**
+
+A **higher-order function** is a function that either:
+- **Takes one or more functions as parameters**, OR
+- **Returns a function as a result**
+
+```kotlin
+// Higher-order function that takes a lambda as a parameter
+fun applyOperation(a: Int, b: Int, operation: (Int, Int) -> Int): Int {
+    return operation(a, b)
+}
+
+// Usage:
+val result = applyOperation(5, 3, { x, y -> x + y }) // result = 8
+```
+
+### **Function Types Syntax**
+
+In Kotlin, function types follow this pattern:
+```kotlin
+(InputType1, InputType2, ...) -> ReturnType
+```
+
+Examples:
+```kotlin
+(Int, Int) -> Int           // Function taking two Ints, returns Int
+(String) -> Boolean         // Function taking a String, returns Boolean
+(List<Int>) -> Unit         // Function taking a List, returns nothing
+() -> String                // Function taking no parameters, returns String
+```
+
+### **Practical Examples**
+
+#### 1. **Functions as Parameters**
+
+```kotlin
+fun executeOperation(a: Int, b: Int, operation: (Int, Int) -> Int): Int {
+    return operation(a, b)
+}
+
+// Call with lambda
+val sum = executeOperation(10, 5, { x, y -> x + y })         // 15
+val product = executeOperation(10, 5, { x, y -> x * y })    // 50
+
+// Call with function reference
+fun subtract(x: Int, y: Int) = x - y
+val difference = executeOperation(10, 5, ::subtract)         // 5
+```
+
+#### 2. **Functions Returning Functions**
+
+```kotlin
+// Function that returns a function
+fun getMultiplier(factor: Int): (Int) -> Int {
+    return { number -> number * factor }
+}
+
+// Usage
+val triple = getMultiplier(3)
+println(triple(5))  // 15
+println(triple(10)) // 30
+```
+
+#### 3. **Common Kotlin Standard Library Higher-Order Functions**
+
+```kotlin
+// map: transform each element
+val numbers = listOf(1, 2, 3, 4)
+val doubled = numbers.map { it * 2 }  // [2, 4, 6, 8]
+
+// filter: keep elements that satisfy a condition
+val evens = numbers.filter { it % 2 == 0 }  // [2, 4]
+
+// forEach: execute an action on each element
+numbers.forEach { println(it) }
+
+// fold: accumulate values
+val sum = numbers.fold(0) { acc, value -> acc + value }  // 10
+
+// sortBy: sort by a property
+data class Person(val name: String, val age: Int)
+val people = listOf(Person("Alice", 30), Person("Bob", 25))
+val sorted = people.sortBy { it.age }
+
+// any / all: check conditions
+val hasEven = numbers.any { it % 2 == 0 }     // true
+val allPositive = numbers.all { it > 0 }      // true
+```
+
+### **Lambda Syntax Variations**
+
+```kotlin
+// Explicit types
+val add: (Int, Int) -> Int = { a, b -> a + b }
+
+// Type inference (compiler deduces types)
+val add = { a: Int, b: Int -> a + b }
+
+// Single parameter with implicit 'it'
+val double = { it * 2 }  // 'it' is the single parameter
+
+// Multi-line lambda
+val calculate = { a: Int, b: Int ->
+    val sum = a + b
+    val product = a * b
+    sum + product  // last expression is returned
+}
+
+// No parameters
+val greeting: () -> String = { "Hello, Kotlin!" }
+println(greeting())  // "Hello, Kotlin!"
+```
+
+### **Trailing Lambda Syntax** (Idiomatic Kotlin)
+
+When a function's last parameter is a lambda, you can move it **outside the parentheses**:
+
+```kotlin
+// Standard call
+val result = applyOperation(5, 3, { x, y -> x + y })
+
+// Trailing lambda syntax (more readable)
+val result = applyOperation(5, 3) { x, y -> x + y }
+
+// Real-world example with Kotlin collections
+val names = listOf("Alice", "Bob", "Charlie")
+names.forEach { name ->
+    println("Hello, $name!")
+}
+```
+
+### **Practical Real-World Example**
+
+```kotlin
+// Repository pattern with higher-order functions
+class UserRepository {
+    fun fetchUsers(
+        onSuccess: (List<User>) -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        try {
+            val users = listOf(User("Alice"), User("Bob"))
+            onSuccess(users)  // Execute the success callback
+        } catch (e: Exception) {
+            onError(e)  // Execute the error callback
+        }
+    }
+}
+
+// Usage
+val repo = UserRepository()
+repo.fetchUsers(
+    onSuccess = { users ->
+        println("Got ${users.size} users")
+        users.forEach { println(it.name) }
+    },
+    onError = { error ->
+        println("Error: ${error.message}")
+    }
+)
+```
+
+### **Key Takeaways**
+
+| Concept | Description |
+| --- | --- |
+| **Lambda** | Anonymous function; compact syntax for simple functions |
+| **Higher-Order Function** | Function that takes or returns another function |
+| **Function Type** | Syntax: `(ParamType) -> ReturnType` |
+| **Trailing Lambda** | Move last lambda parameter outside parentheses for readability |
+| **`it` keyword** | Implicit parameter name for single-parameter lambdas |
+| **Function Reference** | Use `::functionName` to pass a named function as a lambda |
+
+---
+
+-------------------------------------------
+13. `inline`, `noinline`, and `crossinline` functions.
+14. `reified` type parameters in inline functions.
+15. Extension functions and property implementation under the hood.
+16. `map` vs `flatMap` vs `compactMap` equivalents.
+17. Collection mutability (`List` vs `MutableList`).
+18. Scope functions (`let`, `run`, `with`, `apply`, `also`) selection criteria.
+19. Elvis operator short-circuiting mechanics.
+20. `infix` notation requirements and usage.
+21. Destructuring declarations (`component1()`, `component2()`).
+22. `const val` vs `val`.
+23. Delegated properties (`by`) and custom delegates (`ReadOnlyProperty`, `ReadWriteProperty`).
+24. Backing fields (`field`) vs backing properties.
+25. `sealed class` vs `sealed interface`.
+26. Operator overloading syntax and common use cases.
+27. Unchecked vs checked exceptions in Kotlin vs Java.
+28. `@JvmStatic`, `@JvmOverloads`, `@JvmField`, and `@JvmName` annotations.
+29. Primary vs secondary constructors and init blocks.
+30. `enum class` vs `sealed class`.
+31. Value classes (`@JvmInline value class`).
+32. `typealias` keyword usage and limitations.
+33. Functional interfaces (`fun interface` / SAM conversion).
+34. Generics variance: covariance (`out`), contravariance (`in`), invariance.
+35. Star projection (`*`) in generics.
+36. Type erasure in Kotlin/Java generics.
+37. `Nothing` type vs `Unit` vs `Any`.
+38. Structural equality (`==`) vs Referential equality (`===`).
+39. Range expressions and progression loops (`step`, `downTo`, `until`).
+40. `Sequence` vs `Iterable` processing (lazy vs eager evaluation).
+41. Smart casts and `is` / `!is` operators.
+42. Custom getters and setters implementation rules.
+43. Kotlin reflection (`KClass`, `KProperty`, `KFunction`).
+44. Non-local returns in lambdas and `inline` interaction.
+45. Top-level functions and properties compiled representation.
+46. Standard library functions: `takeIf`, `takeUnless`.
+47. Array types in Kotlin (`IntArray`, `Array<Int>`) performance differences.
+48. `@Volatile` and `@Transient` annotations.
+49. String templates and raw multiline strings.
+50. `tailrec` modifier and tail recursion optimization.
+51. Contracts API (`contract { ... }`).
+52. How Kotlin handles default arguments in Java interop.
+53. Package-private visibility equivalent in Kotlin (`internal`).
+54. Exception handling with `runCatching` and `Result<T>`.
+55. Multiplatform Kotlin (KMP) basics: `expect` / `actual` declaration.
+56. Immutable collections vs read-only collections.
+57. `associate`, `associateBy`, and `groupBy` operators.
+58. `fold` vs `reduce` collection methods.
+59. Primitive type wrapping and boxing in Kotlin.
+60. Destructuring custom classes using `componentN()` functions.
+61. Overriding properties in subclasses.
+62. Interface default method implementations in Kotlin bytecode.
+63. Operator function conventions for collections (`get`, `set`, `contains`).
+64. `checkNotNull` and `require` precondition checks.
+65. Explicit API mode in Kotlin libraries.
 
 ---
 
